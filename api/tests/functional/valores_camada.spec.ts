@@ -136,3 +136,50 @@ test.group('Valores das camadas', (group) => {
     ).assertStatus(404)
   })
 })
+
+test.group('Valores de uma camada de pessoas', (group) => {
+  group.each.setup(async () => {
+    await preparar()
+    // 1 000 pessoas no hexágono inteiro e 500 na metade dentro da área, em 2020.
+    for (const [hex, valor] of [
+      [HEX_INTEIRO.id, 1000],
+      [HEX_METADE.id, 500],
+    ] as const) {
+      await db.rawQuery(
+        "INSERT INTO valores_camada (camada_id, hexagono_id, ano, valor) VALUES ('populacao', ?, 2020, ?)",
+        [hex, valor]
+      )
+    }
+    await db.rawQuery(
+      `UPDATE camadas SET disponivel = true, anos = '{2020}' WHERE id = 'populacao'`
+    )
+    return limpar
+  })
+
+  test('série e hexágono dão a densidade por km², sem percentagem', async ({ client, assert }) => {
+    const [serie] = (await client.get('/api/v1/camadas/populacao/serie')).body().data
+    assert.equal(serie.total, 1500)
+    assert.isNull(serie.percentagem)
+    // 1 500 pessoas em 1,5 hexágonos de 0,649519 km² = 1 539,6 por km².
+    assert.closeTo(serie.densidade, 1539.6, 0.1)
+    const [ponto] = (
+      await client.get(`/api/v1/camadas/populacao/hexagonos/${HEX_METADE.id}`)
+    ).body().data
+    assert.equal(ponto.valor, 500)
+    assert.equal(ponto.densidade, 1540)
+  })
+
+  test('os tiles levam a densidade de cada ano', async ({ assert }) => {
+    const resposta = await fetch(
+      `http://${env.get('HOST')}:${env.get('PORT')}/api/v1/grelha/tiles/12/2198/2148?camada=populacao`
+    )
+    const tile = new VectorTile(new Pbf(new Uint8Array(await resposta.arrayBuffer())))
+    const props: Record<string, Record<string, unknown>> = {}
+    for (let i = 0; i < tile.layers.grelha.length; i++) {
+      const f = tile.layers.grelha.feature(i).properties
+      props[String(f.id)] = f
+    }
+    assert.equal(props[HEX_INTEIRO.id].a2020, 1540)
+    assert.equal(props[HEX_METADE.id].a2020, 1540)
+  })
+})

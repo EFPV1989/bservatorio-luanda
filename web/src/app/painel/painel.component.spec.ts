@@ -173,4 +173,32 @@ describe('PainelComponent', () => {
     expect(el.textContent).toContain('estimado a partir de imagens de satélite');
     expect(el.textContent).not.toContain('Linha cheia: observado');
   });
+
+  it('numa camada de pessoas mostra o total, a densidade e a legenda de densidade', () => {
+    const populacao = {
+      ...CAMADA_COM_DADOS,
+      id: 'populacao',
+      nome: 'População estimada',
+      unidade: 'pessoas',
+      anos: { inicio: 2015, fim: 2030, ultimoObservado: null, carregados: [2015, 2020] },
+    };
+    fixture.componentRef.setInput('camadaAtiva', populacao);
+    fixture.componentRef.setInput('serie', [
+      { ano: 2015, total: 7_000_000, percentagem: null, densidade: 355, projecao: false },
+      { ano: 2020, total: 8_200_000, percentagem: null, densidade: 416, projecao: false },
+    ]);
+    fixture.componentRef.setInput('hexagono', {
+      id: 'h500_r1_c1',
+      pontos: [{ ano: 2020, valor: 12_500, percentagem: null, densidade: 19_245, projecao: false }],
+    });
+    fixture.detectChanges();
+    expect(q('[data-testid="valor-ano"]')?.textContent).toContain('8,2 milhões');
+    expect(q('[data-testid="valor-ano"]')?.textContent).toContain('416 por km²');
+    expect(q('#titulo-legenda')?.textContent).toContain('Pessoas por km²');
+    expect(q('[data-testid="legenda"]')?.textContent).toContain('15 000 ou mais');
+    // O pt-PT separa os milhares com um espaço fino; normalizar antes de comparar.
+    expect(q('[data-testid="valor-hexagono"]')?.textContent?.replace(/\s/g, ' ')).toContain('12 500 pessoas');
+    expect(el.textContent).toContain('estimativa do modelo');
+  });
 });
+

@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, input, model, output } fr
 import { DecimalPipe } from '@angular/common';
 import { ANOS, ANO_FINAL, ANO_INICIAL, PASSO_ANOS, ULTIMO_ANO_OBSERVADO } from '../core/anos';
 import { AreaEstudo, Camada, PontoHexagono, PontoSerie, ResumoGrelha } from '../core/api.types';
-import { CLASSES_PERCENTAGEM, COR_SEM_DADOS } from '../core/escala';
+import { COR_SEM_DADOS, classesPara } from '../core/escala';
 import { GraficoSerieComponent, PontoGrafico } from '../grafico/grafico-serie.component';
 
 export interface HexagonoSelecionado {
@@ -39,8 +39,10 @@ export class PainelComponent {
   readonly anoFinal = ANO_FINAL;
   readonly passoAnos = PASSO_ANOS;
   readonly anos = ANOS;
-  readonly classes = CLASSES_PERCENTAGEM;
   readonly corSemDados = COR_SEM_DADOS;
+  /** Escala da legenda: a da camada ativa. */
+  readonly classes = computed(() => classesPara(this.camadaAtiva()?.unidade ?? 'm2'));
+  readonly emPessoas = computed(() => this.camadaAtiva()?.unidade === 'pessoas');
 
   /** Último ano observado: o da camada ativa, ou o da GHSL por omissão. */
   private readonly ultimoObservado = computed(
@@ -59,16 +61,21 @@ export class PainelComponent {
 
   readonly pontoSerieDoAno = computed(() => this.serie()?.find((p) => p.ano === this.ano()) ?? null);
 
+  /** Camadas de área: % da área. Camadas de pessoas: total de pessoas. */
   readonly graficoSerie = computed<PontoGrafico[]>(() =>
-    (this.serie() ?? [])
-      .filter((p) => p.percentagem !== null)
-      .map((p) => ({ ano: p.ano, valor: p.percentagem!, projecao: p.projecao })),
+    (this.serie() ?? []).map((p) => ({
+      ano: p.ano,
+      valor: this.emPessoas() ? p.total : (p.percentagem ?? 0),
+      projecao: p.projecao,
+    })),
   );
 
   readonly graficoHexagono = computed<PontoGrafico[]>(() =>
-    (this.hexagono()?.pontos ?? [])
-      .filter((p) => p.percentagem !== null)
-      .map((p) => ({ ano: p.ano, valor: p.percentagem!, projecao: p.projecao })),
+    (this.hexagono()?.pontos ?? []).map((p) => ({
+      ano: p.ano,
+      valor: this.emPessoas() ? p.valor : (p.percentagem ?? 0),
+      projecao: p.projecao,
+    })),
   );
 
   readonly pontoHexagonoDoAno = computed(

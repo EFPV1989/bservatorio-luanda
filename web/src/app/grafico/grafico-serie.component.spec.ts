@@ -59,4 +59,22 @@ describe('GraficoSerieComponent', () => {
       .filter((t) => /^\d{4}$/.test(t ?? ''));
     expect(rotulos).toEqual(['1975', '1990', '2000', '2010', '2020', '2030']);
   });
+
+  it('em pessoas, o eixo usa milhões e a descrição diz "pessoas"', () => {
+    TestBed.configureTestingModule({ imports: [GraficoSerieComponent], providers: [{ provide: LOCALE_ID, useValue: 'pt' }] });
+    const fixture = TestBed.createComponent(GraficoSerieComponent);
+    fixture.componentRef.setInput('pontos', [
+      { ano: 2015, valor: 7_000_000, projecao: false },
+      { ano: 2030, valor: 11_000_000, projecao: true },
+    ]);
+    fixture.componentRef.setInput('formato', 'pessoas');
+    fixture.componentRef.setInput('titulo', 'População');
+    fixture.detectChanges();
+    const c = fixture.componentInstance;
+    expect(c.rotuloY(10_000_000)).toBe('10 mi');
+    expect(c.rotuloY(500_000)).toBe('500 mil');
+    expect(c.marcasY()[2]).toBeGreaterThanOrEqual(11_000_000);
+    expect(fixture.nativeElement.querySelector('svg').getAttribute('aria-label')).toContain('pessoas');
+  });
 });
+

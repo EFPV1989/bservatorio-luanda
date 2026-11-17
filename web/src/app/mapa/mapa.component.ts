@@ -17,7 +17,7 @@ import maplibregl, {
   VectorTileSource,
 } from 'maplibre-gl';
 import { AreaEstudo, ResumoGrelha } from '../core/api.types';
-import { expressaoCor } from '../core/escala';
+import { ClasseCor, expressaoCor } from '../core/escala';
 
 /** Enquadramento inicial: Luanda num zoom em que a grelha já se vê e a cidade cabe no ecrã. */
 const CENTRO_LUANDA: [number, number] = [13.28, -8.9];
@@ -57,8 +57,8 @@ export class MapaComponent implements AfterViewInit, OnDestroy {
   readonly areaEstudo = input<AreaEstudo | null>(null);
   readonly grelha = input<ResumoGrelha | null>(null);
   readonly mostrarGrelha = input(true);
-  /** Pintar os hexágonos pela percentagem do ano (quando há uma camada de área ativa). */
-  readonly colorir = input(false);
+  /** Escala para pintar os hexágonos no ano (camada ativa), ou `null` para o tom neutro da grelha. */
+  readonly classes = input<readonly ClasseCor[] | null>(null);
   readonly ano = input(2020);
   readonly hexagonoSelecionado = input<string | null>(null);
 
@@ -92,9 +92,9 @@ export class MapaComponent implements AfterViewInit, OnDestroy {
       if (this.carregado) this.definirVisibilidadeGrelha(visivel);
     });
     effect(() => {
-      const colorir = this.colorir();
+      const classes = this.classes();
       const ano = this.ano();
-      if (this.carregado) this.pintar(colorir, ano);
+      if (this.carregado) this.pintar(classes, ano);
     });
     effect(() => {
       const id = this.hexagonoSelecionado();
@@ -214,17 +214,18 @@ export class MapaComponent implements AfterViewInit, OnDestroy {
       paint: { 'line-color': CORES.selecionado, 'line-width': 3 },
     });
     this.definirVisibilidadeGrelha(this.mostrarGrelha());
-    this.pintar(this.colorir(), this.ano());
+    this.pintar(this.classes(), this.ano());
   }
 
-  /** Cor por percentagem do ano (camada ativa) ou o tom neutro da grelha. */
-  private pintar(colorir: boolean, ano: number): void {
+  /** Cor pela classe do valor no ano (camada ativa) ou o tom neutro da grelha. */
+  private pintar(classes: readonly ClasseCor[] | null, ano: number): void {
     const mapa = this.mapa!;
     if (!mapa.getLayer('grelha-preenchimento')) return;
+    const colorir = classes !== null;
     mapa.setPaintProperty(
       'grelha-preenchimento',
       'fill-color',
-      colorir ? expressaoCor(ano) : CORES.grelhaPreenchimento,
+      classes ? expressaoCor(ano, classes) : CORES.grelhaPreenchimento,
     );
     mapa.setPaintProperty('grelha-preenchimento', 'fill-opacity', colorir ? 0.85 : 0.15);
     // Com cores, as linhas da grelha ficam discretas para não esconderem o padrão.

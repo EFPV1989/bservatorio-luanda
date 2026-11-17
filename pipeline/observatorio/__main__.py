@@ -86,40 +86,44 @@ def _area(args: argparse.Namespace) -> int:
     return 0
 
 
-def _ghsl(args: argparse.Namespace) -> int:
-    from observatorio import ghsl, postgis
+def _processar_rasters(args: argparse.Namespace, ano_do_ficheiro, processar_ano) -> int:
+    """Passos comuns às fontes em raster: lê a grelha, processa cada ano, valida e carrega.
+
+    `processar_ano(ano, raster, contexto)` devolve (valores com `id` e `valor`,
+    linha de resumo, lista de problemas, lista de notas informativas).
+    """
+    from observatorio import postgis
+    from observatorio.raster import caminho_raster
 
     url = os.environ.get("DATABASE_URL")
     if not url:
         print("Erro: defina DATABASE_URL (a grelha e a área de estudo são lidas do PostGIS).", file=sys.stderr)
         return 1
 
-    ficheiros = sorted(args.ficheiros, key=ghsl.ano_do_ficheiro)
-    anos = [ghsl.ano_do_ficheiro(f) for f in ficheiros]
+    ficheiros = sorted(args.ficheiros, key=ano_do_ficheiro)
+    anos = [ano_do_ficheiro(f) for f in ficheiros]
     if len(set(anos)) != len(anos):
         print(f"Erro: há anos repetidos nos ficheiros: {anos}", file=sys.stderr)
         return 1
 
-    area = postgis.ler_area_estudo(url)
     hexagonos = postgis.ler_hexagonos_recortados(url, args.lado)
-    areas_m2 = hexagonos.set_index("id")["area_m2"]
-    area_total_km2 = float(areas_m2.sum()) / 1e6
-    print(f"{len(hexagonos):,} hexágonos, {area_total_km2:,.0f} km² de área de estudo")
+    contexto = {
+        "area": postgis.ler_area_estudo(url),
+        "hexagonos": hexagonos,
+        "areas_m2": hexagonos.set_index("id")["area_m2"],
+        "area_total_km2": float(hexagonos["area_m2"].sum()) / 1e6,
+    }
+    print(f"{len(hexagonos):,} hexágonos, {contexto['area_total_km2']:,.0f} km² de área de estudo")
 
     valores_por_ano = {}
     problemas_totais = []
     for ano, ficheiro in zip(anos, ficheiros):
-        raster = ghsl.caminho_raster(ficheiro)
-        valores = ghsl.superficie_por_hexagono(raster, hexagonos)
-        referencia = ghsl.total_na_area(raster, area)
-        problemas = ghsl.validar(valores, areas_m2, referencia)
-        soma_km2 = valores["construido_m2"].sum() / 1e6
-        estado = "ok" if not problemas else "PROBLEMAS"
-        print(f"  {ano}: {soma_km2:8,.1f} km² construídos ({soma_km2 / area_total_km2:6.2%} da área) — {estado}")
-        for problema in problemas:
-            print(f"      - {problema}")
+        valores, resumo, problemas, notas = processar_ano(ano, caminho_raster(ficheiro), contexto)
+        print(f"  {ano}: {resumo} — {'ok' if not problemas else 'PROBLEMAS'}")
+        for linha in problemas + notas:
+            print(f"      - {linha}")
         problemas_totais += problemas
-        valores_por_ano[ano] = valores.rename(columns={"construido_m2": "valor"})
+        valores_por_ano[ano] = valores
 
     if problemas_totais:
         print("Erro: os dados não passaram a validação; nada foi carregado.", file=sys.stderr)
@@ -131,6 +135,34 @@ def _ghsl(args: argparse.Namespace) -> int:
     n = postgis.carregar_valores(url, args.camada, valores_por_ano)
     print(f"Carregados {n:,} valores na camada '{args.camada}' ({len(anos)} anos).")
     return 0
+
+
+def _ghsl(args: argparse.Namespace) -> int:
+    from observatorio import ghsl
+
+    def processar_ano(ano, raster, ctx):
+        valores = ghsl.superficie_por_hexagono(raster, ctx["hexagonos"])
+        problemas = ghsl.validar(valores, ctx["areas_m2"], ghsl.total_na_area(raster, ctx["area"]))
+        km2 = valores["construido_m2"].sum() / 1e6
+        resumo = f"{km2:8,.1f} km² construídos ({km2 / ctx['area_total_km2']:6.2%} da área)"
+        return valores.rename(columns={"construido_m2": "valor"}), resumo, problemas, []
+
+    return _processar_rasters(args, ghsl.ano_do_ficheiro, processar_ano)
+
+
+def _worldpop(args: argparse.Namespace) -> int:
+    from observatorio import worldpop
+    from observatorio.raster import soma_por_hexagono, total_na_area
+
+    def processar_ano(ano, raster, ctx):
+        valores = soma_por_hexagono(raster, ctx["hexagonos"], fonte_nome="do WorldPop")
+        problemas = worldpop.validar(valores, total_na_area(raster, ctx["area"]))
+        total = float(valores["valor"].sum())
+        resumo = f"{total:12,.0f} pessoas ({total / ctx['area_total_km2']:,.0f} por km²)"
+        censo = worldpop.comparar_com_censo(ano, total)
+        return valores, resumo, problemas, [censo] if censo else []
+
+    return _processar_rasters(args, worldpop.ano_do_ficheiro, processar_ano)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -161,6 +193,13 @@ def main(argv: list[str] | None = None) -> int:
     g.add_argument("--camada", default="superficie-construida", help="Id da camada no catálogo")
     g.add_argument("--simular", action="store_true", help="Calcula e valida sem carregar no PostGIS")
     g.set_defaults(func=_ghsl)
+
+    w = sub.add_parser("worldpop", help="Calcula a população estimada (WorldPop) por hexágono e carrega-a")
+    w.add_argument("ficheiros", nargs="+", help="Ficheiros ago_pop_<ano>_CN_100m_R2025A_v1.tif, um por ano")
+    w.add_argument("--lado", type=int, default=500, help="Lado da grelha em metros (padrão: 500)")
+    w.add_argument("--camada", default="populacao", help="Id da camada no catálogo")
+    w.add_argument("--simular", action="store_true", help="Calcula e valida sem carregar no PostGIS")
+    w.set_defaults(func=_worldpop)
 
     args = parser.parse_args(argv)
     return args.func(args)

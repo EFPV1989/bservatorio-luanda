@@ -58,50 +58,67 @@
   </section>
 
   @if (camadaAtiva(); as camada) {
-    @if (camada.unidade === 'm2') {
-      <section aria-labelledby="titulo-serie" data-testid="secao-serie">
-        <h2 id="titulo-serie" class="text-sm font-semibold">{{ camada.nome }} na área de estudo</h2>
-        @if (pontoSerieDoAno(); as p) {
-          <p class="mt-1 text-sm" data-testid="valor-ano">
+    <section aria-labelledby="titulo-serie" data-testid="secao-serie">
+      <h2 id="titulo-serie" class="text-sm font-semibold">{{ camada.nome }} na área de estudo</h2>
+      @if (pontoSerieDoAno(); as p) {
+        <p class="mt-1 text-sm" data-testid="valor-ano">
+          @if (emPessoas()) {
+            Em {{ p.ano }}: <strong class="tabular-nums">{{ p.total / 1e6 | number: '1.1-1' : 'pt' }} milhões</strong> de
+            pessoas, {{ p.densidade | number: '1.0-0' : 'pt' }} por km²{{ p.projecao ? ' (projeção)' : '' }}.
+          } @else {
             Em {{ p.ano }}: <strong class="tabular-nums">{{ p.total / 1e6 | number: '1.0-0' : 'pt' }} km²</strong>
             construídos, {{ p.percentagem | number: '1.1-1' : 'pt' }}% da área{{ p.projecao ? ' (projeção)' : '' }}.
-          </p>
-        }
-        @if (graficoSerie().length > 0) {
-          <app-grafico-serie class="mt-2" [pontos]="graficoSerie()" [anoAtual]="ano()" [titulo]="camada.nome + ' na área de estudo'" />
-          <p class="mt-1 text-xs text-tinta-clara">Linha cheia: estimado a partir de imagens de satélite. Tracejado: projeção.</p>
-        } @else {
-          <p class="mt-2 text-xs text-tinta-clara">A carregar a série…</p>
-        }
-        @if (camada.notas.length > 0) {
-          <details class="mt-2 text-xs text-tinta-suave" data-testid="notas-camada">
-            <summary class="cursor-pointer font-medium">Limitações destes dados</summary>
-            <ul class="mt-1 list-disc space-y-1 pl-4">
-              @for (nota of camada.notas; track nota) {
-                <li>{{ nota }}</li>
-              }
-            </ul>
-          </details>
-        }
-      </section>
-
-      <section aria-labelledby="titulo-legenda">
-        <h2 id="titulo-legenda" class="text-sm font-semibold">Parte de cada hexágono construída</h2>
-        <ul class="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-tinta-suave" data-testid="legenda">
-          @for (classe of classes; track classe.desde) {
-            <li class="flex items-center gap-2">
-              <span class="inline-block h-3 w-4 rounded-sm border border-linha" [style.background-color]="classe.cor"></span>
-              {{ classe.rotulo }}
-            </li>
           }
+        </p>
+      }
+      @if (graficoSerie().length > 0) {
+        <app-grafico-serie
+          class="mt-2"
+          [pontos]="graficoSerie()"
+          [anoAtual]="ano()"
+          [titulo]="camada.nome + ' na área de estudo'"
+          [formato]="emPessoas() ? 'pessoas' : 'percentagem'"
+        />
+        <p class="mt-1 text-xs text-tinta-clara">
+          @if (emPessoas()) {
+            Linha cheia: estimativa do modelo. Tracejado: projeção.
+          } @else {
+            Linha cheia: estimado a partir de imagens de satélite. Tracejado: projeção.
+          }
+        </p>
+      } @else {
+        <p class="mt-2 text-xs text-tinta-clara">A carregar a série…</p>
+      }
+      @if (camada.notas.length > 0) {
+        <details class="mt-2 text-xs text-tinta-suave" data-testid="notas-camada">
+          <summary class="cursor-pointer font-medium">Limitações destes dados</summary>
+          <ul class="mt-1 list-disc space-y-1 pl-4">
+            @for (nota of camada.notas; track nota) {
+              <li>{{ nota }}</li>
+            }
+          </ul>
+        </details>
+      }
+    </section>
+
+    <section aria-labelledby="titulo-legenda">
+      <h2 id="titulo-legenda" class="text-sm font-semibold">
+        {{ emPessoas() ? 'Pessoas por km² em cada hexágono' : 'Parte de cada hexágono construída' }}
+      </h2>
+      <ul class="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-tinta-suave" data-testid="legenda">
+        @for (classe of classes(); track classe.desde) {
           <li class="flex items-center gap-2">
-            <span class="inline-block h-3 w-4 rounded-sm border border-linha" [style.background-color]="corSemDados"></span>
-            sem dados
+            <span class="inline-block h-3 w-4 rounded-sm border border-linha" [style.background-color]="classe.cor"></span>
+            {{ classe.rotulo }}
           </li>
-        </ul>
-        <p class="mt-2 text-xs text-tinta-clara">Clique num hexágono para ver a sua evolução.</p>
-      </section>
-    }
+        }
+        <li class="flex items-center gap-2">
+          <span class="inline-block h-3 w-4 rounded-sm border border-linha" [style.background-color]="corSemDados"></span>
+          sem dados
+        </li>
+      </ul>
+      <p class="mt-2 text-xs text-tinta-clara">Clique num hexágono para ver a sua evolução.</p>
+    </section>
   }
 
   @if (hexagono(); as h) {
@@ -115,11 +132,22 @@
       } @else {
         @if (pontoHexagonoDoAno(); as p) {
           <p class="mt-1 text-sm" data-testid="valor-hexagono">
-            Em {{ p.ano }}: <strong class="tabular-nums">{{ p.percentagem | number: '1.0-1' : 'pt' }}%</strong> construído
-            ({{ p.valor / 1e4 | number: '1.1-1' : 'pt' }} ha){{ p.projecao ? ', projeção' : '' }}.
+            @if (emPessoas()) {
+              Em {{ p.ano }}: <strong class="tabular-nums">{{ p.valor | number: '1.0-0' : 'pt' }} pessoas</strong>
+              ({{ p.densidade | number: '1.0-0' : 'pt' }} por km²){{ p.projecao ? ', projeção' : '' }}.
+            } @else {
+              Em {{ p.ano }}: <strong class="tabular-nums">{{ p.percentagem | number: '1.0-1' : 'pt' }}%</strong> construído
+              ({{ p.valor / 1e4 | number: '1.1-1' : 'pt' }} ha){{ p.projecao ? ', projeção' : '' }}.
+            }
           </p>
         }
-        <app-grafico-serie class="mt-2" [pontos]="graficoHexagono()" [anoAtual]="ano()" titulo="Hexágono selecionado" />
+        <app-grafico-serie
+          class="mt-2"
+          [pontos]="graficoHexagono()"
+          [anoAtual]="ano()"
+          titulo="Hexágono selecionado"
+          [formato]="emPessoas() ? 'pessoas' : 'percentagem'"
+        />
       }
       <p class="mt-1 font-mono text-[10px] text-tinta-clara">{{ h.id }}</p>
     </section>

@@ -9,6 +9,7 @@ import { AppComponent } from './app.component';
 import { ApiService } from './core/api.service';
 import { MapaComponent } from './mapa/mapa.component';
 import { Camada } from './core/api.types';
+import { CLASSES_PERCENTAGEM } from './core/escala';
 
 registerLocaleData(localePt, 'pt');
 
@@ -20,7 +21,7 @@ class MapaFalsoComponent {
   readonly areaEstudo = input<unknown>();
   readonly grelha = input<unknown>();
   readonly mostrarGrelha = input<boolean>();
-  readonly colorir = input<boolean>();
+  readonly classes = input<unknown>();
   readonly ano = input<number>();
   readonly hexagonoSelecionado = input<string | null>();
   readonly zoomMudou = output<number>();
@@ -76,12 +77,12 @@ describe('AppComponent', () => {
     expect(serie).toHaveBeenCalledWith('superficie-construida');
     expect(app.serie()?.length).toBe(1);
     expect(app.urlTilesGrelha()).toContain('?camada=superficie-construida');
-    expect(app.colorir()).toBeTrue();
+    expect(app.classes()).toBe(CLASSES_PERCENTAGEM);
 
     app.escolherCamada(null);
     expect(app.camadaAtiva()).toBeNull();
     expect(app.urlTilesGrelha()).not.toContain('camada');
-    expect(app.colorir()).toBeFalse();
+    expect(app.classes()).toBeNull();
   });
 
   it('clicar num hexágono pede a sua série; clicar fora fecha', () => {

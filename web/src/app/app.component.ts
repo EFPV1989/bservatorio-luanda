@@ -14,6 +14,7 @@ import { environment } from '../environments/environment';
 import { ApiService } from './core/api.service';
 import { AreaEstudo, Camada, PontoSerie, ResumoGrelha } from './core/api.types';
 import { ULTIMO_ANO_OBSERVADO } from './core/anos';
+import { classesPara } from './core/escala';
 import { MapaComponent } from './mapa/mapa.component';
 import { HexagonoSelecionado, PainelComponent } from './painel/painel.component';
 
@@ -47,7 +48,10 @@ export class AppComponent implements OnInit {
   readonly hexagono = signal<HexagonoSelecionado | null>(null);
 
   readonly urlTilesGrelha = computed(() => this.api.urlTilesGrelha(this.camadaAtiva()?.id));
-  readonly colorir = computed(() => this.camadaAtiva()?.unidade === 'm2');
+  readonly classes = computed(() => {
+    const camada = this.camadaAtiva();
+    return camada ? classesPara(camada.unidade) : null;
+  });
 
   private pedidoSerie?: Subscription;
   private pedidoHexagono?: Subscription;

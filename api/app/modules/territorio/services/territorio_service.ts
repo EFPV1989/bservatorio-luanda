@@ -95,8 +95,8 @@ export class TerritorioService {
   /**
    * Tile vetorial (Mapbox Vector Tile) com os hexágonos que caem no tile.
    * Com `camada`, cada hexágono leva também uma propriedade por ano (`a1975`,
-   * `a1980`, …): a percentagem do hexágono, nas camadas de área (m²), ou o valor,
-   * nas outras. Assim o site muda de ano sem pedir novos tiles.
+   * `a1980`, …): a percentagem do hexágono, nas camadas de área (m²), ou a
+   * densidade por km², nas outras. Assim o site muda de ano sem pedir novos tiles.
    * Devolve `null` quando o zoom é baixo de mais ou não há hexágonos no tile.
    */
   async tileGrelha(
@@ -107,10 +107,11 @@ export class TerritorioService {
     if (z < GRELHA_ZOOM_MINIMO) return null
 
     const anos = camada ? camada.anos.filter((ano) => Number.isInteger(ano)) : []
+    // Camadas de área (m²): % do hexágono construída. Outras (ex.: pessoas): densidade por km².
     const expressao =
       camada?.unidade === 'm2'
         ? 'LEAST(100, round((100 * v.valor / (h.area_km2 * h.fracao_na_area * 1e6))::numeric, 1))'
-        : 'round(v.valor::numeric, 1)'
+        : 'round((v.valor / (h.area_km2 * h.fracao_na_area))::numeric, 0)'
     // Os anos vêm da base de dados como inteiros validados: é seguro pô-los no SQL.
     const colunasAnos = anos
       .map((ano) => `, max(${expressao}) FILTER (WHERE v.ano = ${ano})::float8 AS a${ano}`)

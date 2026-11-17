@@ -1,4 +1,4 @@
-import { CLASSES_PERCENTAGEM, COR_SEM_DADOS, classeDe, expressaoCor } from './escala';
+import { CLASSES_DENSIDADE, CLASSES_PERCENTAGEM, COR_SEM_DADOS, classeDe, classesPara, expressaoCor } from './escala';
 
 describe('escala de cores', () => {
   it('classifica percentagens nos limites certos', () => {
@@ -19,4 +19,14 @@ describe('escala de cores', () => {
     const cores = expressao.slice(3).filter((_, i) => i % 2 === 1);
     expect(cores).toEqual(CLASSES_PERCENTAGEM.map((c) => c.cor));
   });
+
+  it('a densidade tem a sua própria escala, escolhida pela unidade', () => {
+    expect(classesPara('m2')).toBe(CLASSES_PERCENTAGEM);
+    expect(classesPara('pessoas')).toBe(CLASSES_DENSIDADE);
+    expect(classeDe(9, CLASSES_DENSIDADE)?.rotulo).toBe('menos de 10');
+    expect(classeDe(20000, CLASSES_DENSIDADE)?.rotulo).toBe('15 000 ou mais');
+    const cores = (expressaoCor(2020, CLASSES_DENSIDADE) as unknown[]).slice(3).filter((_, i) => i % 2 === 1);
+    expect(cores).toEqual(CLASSES_DENSIDADE.map((c) => c.cor));
+  });
 });
+

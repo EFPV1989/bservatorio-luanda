@@ -55,6 +55,8 @@ export interface PontoSerie {
   total: number;
   /** Só em camadas de área (m²): parte da área de estudo, em %. */
   percentagem: number | null;
+  /** Só nas outras camadas (ex.: pessoas): valor por km². */
+  densidade: number | null;
   projecao: boolean;
 }
 
@@ -63,5 +65,6 @@ export interface PontoHexagono {
   ano: number;
   valor: number;
   percentagem: number | null;
+  densidade: number | null;
   projecao: boolean;
 }

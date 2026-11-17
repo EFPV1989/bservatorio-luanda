@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { DecimalPipe } from '@angular/common';
 
 export interface PontoGrafico {
   ano: number;
@@ -19,7 +18,6 @@ const M = { esq: 34, dir: 8, cima: 10, baixo: 22 };
 @Component({
   selector: 'app-grafico-serie',
   standalone: true,
-  imports: [DecimalPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
@@ -32,7 +30,7 @@ const M = { esq: 34, dir: 8, cima: 10, baixo: 22 };
       @for (t of marcasY(); track t) {
         <line [attr.x1]="m.esq" [attr.x2]="largura - m.dir" [attr.y1]="y(t)" [attr.y2]="y(t)" stroke="#e3e0d8" />
         <text [attr.x]="m.esq - 4" [attr.y]="y(t) + 3" text-anchor="end" font-size="9" fill="#8a98a3">
-          {{ t | number: '1.0-0' : 'pt' }}%
+          {{ rotuloY(t) }}
         </text>
       }
       @for (p of pontos(); track p.ano; let primeiro = $first; let ultimo = $last) {
@@ -71,6 +69,8 @@ export class GraficoSerieComponent {
   readonly pontos = input.required<PontoGrafico[]>();
   readonly anoAtual = input<number | null>(null);
   readonly titulo = input('Série');
+  /** Como ler os valores: percentagem (0–100) ou número de pessoas. */
+  readonly formato = input<'percentagem' | 'pessoas'>('percentagem');
 
   readonly largura = L;
   readonly altura = A;
@@ -79,9 +79,10 @@ export class GraficoSerieComponent {
   private readonly anos = computed(() => this.pontos().map((p) => p.ano));
   private readonly maximo = computed(() => {
     const max = Math.max(0, ...this.pontos().map((p) => p.valor));
-    // Teto "redondo" acima do máximo, para a linha não colar ao topo.
-    const passo = max <= 10 ? 2 : max <= 50 ? 10 : 20;
-    return Math.max(passo, Math.ceil((max * 1.1) / passo) * passo);
+    if (max === 0) return this.formato() === 'percentagem' ? 2 : 10;
+    // Teto "redondo" acima do máximo (meia ordem de grandeza), para a linha não colar ao topo.
+    const passo = 10 ** Math.floor(Math.log10(max * 1.1)) / 2;
+    return Math.ceil((max * 1.1) / passo) * passo;
   });
 
   readonly marcasY = computed(() => {
@@ -106,8 +107,24 @@ export class GraficoSerieComponent {
     const p = this.pontos();
     if (p.length === 0) return `${this.titulo()}: sem dados`;
     const [a, b] = [p[0], p[p.length - 1]];
-    return `${this.titulo()}: de ${a.valor.toFixed(1)}% em ${a.ano} para ${b.valor.toFixed(1)}% em ${b.ano}`;
+    return `${this.titulo()}: de ${this.texto(a.valor)} em ${a.ano} para ${this.texto(b.valor)} em ${b.ano}`;
   });
+
+  /** Rótulo curto do eixo vertical. */
+  rotuloY(valor: number): string {
+    if (this.formato() === 'percentagem') return `${this.numero(valor, 1)}%`;
+    if (valor >= 1e6) return `${this.numero(valor / 1e6, 1)} mi`;
+    if (valor >= 1e3) return `${this.numero(valor / 1e3, 0)} mil`;
+    return this.numero(valor, 0);
+  }
+
+  private texto(valor: number): string {
+    return this.formato() === 'percentagem' ? `${this.numero(valor, 1)}%` : `${this.rotuloY(valor)} pessoas`;
+  }
+
+  private numero(valor: number, casas: number): string {
+    return valor.toLocaleString('pt-PT', { maximumFractionDigits: casas });
+  }
 
   /** Rótulos de década, sem os que ficariam colados ao primeiro ou ao último ano. */
   mostrarAno(ano: number): boolean {

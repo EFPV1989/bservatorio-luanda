@@ -20,6 +20,8 @@ export interface PontoSerie {
   total: number
   /** Só em camadas de área (m²): parte da área de estudo, em %. */
   percentagem: number | null
+  /** Só nas outras camadas (ex.: pessoas): valor por km² da área de estudo. */
+  densidade: number | null
   projecao: boolean
 }
 
@@ -27,6 +29,7 @@ export interface PontoHexagono {
   ano: number
   valor: number
   percentagem: number | null
+  densidade: number | null
   projecao: boolean
 }
 
@@ -108,11 +111,12 @@ export class CamadasService {
     )
     return resultado.rows.map((linha: { ano: number; total: string; area_m2: string }) => {
       const total = Number(linha.total)
+      const area = camada.unidade === 'm2'
       return {
         ano: linha.ano,
         total: arredondar(total, 0),
-        percentagem:
-          camada.unidade === 'm2' ? arredondar((100 * total) / Number(linha.area_m2), 2) : null,
+        percentagem: area ? arredondar((100 * total) / Number(linha.area_m2), 2) : null,
+        densidade: area ? null : arredondar(total / (Number(linha.area_m2) / 1e6), 1),
         projecao: this.ehProjecao(camada, linha.ano),
       }
     })
@@ -132,13 +136,14 @@ export class CamadasService {
     if (resultado.rows.length === 0) {
       throw AppError.notFound('HEXAGONO_NOT_FOUND', 'Hexágono sem valores nesta camada.')
     }
+    const area = camada.unidade === 'm2'
     return resultado.rows.map((linha: { ano: number; valor: number; area_m2: number }) => ({
       ano: linha.ano,
       valor: arredondar(Number(linha.valor), 0),
-      percentagem:
-        camada.unidade === 'm2'
-          ? arredondar(Math.min(100, (100 * Number(linha.valor)) / Number(linha.area_m2)), 1)
-          : null,
+      percentagem: area
+        ? arredondar(Math.min(100, (100 * Number(linha.valor)) / Number(linha.area_m2)), 1)
+        : null,
+      densidade: area ? null : arredondar(Number(linha.valor) / (Number(linha.area_m2) / 1e6), 0),
       projecao: this.ehProjecao(camada, linha.ano),
     }))
   }
