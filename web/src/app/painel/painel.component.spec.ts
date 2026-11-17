@@ -29,6 +29,7 @@ const CAMADA: Camada = {
   anos: { inicio: 1975, fim: 2030, ultimoObservado: 2020, carregados: [] },
   resolucao: '100 m',
   unidade: 'm2',
+  notas: [],
   disponivel: false,
 };
 
@@ -161,5 +162,15 @@ describe('PainelComponent', () => {
     fixture.detectChanges();
     expect(q('[data-testid="valor-hexagono"]')?.textContent).toContain('50%');
     expect(q('[data-testid="valor-hexagono"]')?.textContent).toContain('32,5 ha');
+  });
+
+  it('mostra as limitações da camada ativa', () => {
+    const comNotas = { ...CAMADA_COM_DADOS, notas: ['A série só regista construção nova: não mostra demolições.'] };
+    fixture.componentRef.setInput('camadaAtiva', comNotas);
+    fixture.componentRef.setInput('serie', [{ ano: 2020, total: 1e8, percentagem: 1, projecao: false }]);
+    fixture.detectChanges();
+    expect(q('[data-testid="notas-camada"]')?.textContent).toContain('não mostra demolições');
+    expect(el.textContent).toContain('estimado a partir de imagens de satélite');
+    expect(el.textContent).not.toContain('Linha cheia: observado');
   });
 });

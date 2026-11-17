@@ -75,6 +75,8 @@ test.group('Valores das camadas', (group) => {
     assert.deepEqual(camada.anos.carregados, [1975, 2020, 2030])
     assert.equal(camada.anos.ultimoObservado, 2020)
     assert.equal(camada.unidade, 'm2')
+    assert.lengthOf(camada.notas, 3)
+    assert.match(camada.notas[1], /demolições/)
   })
 
   test('a série soma a área de estudo e assinala as projeções', async ({ client, assert }) => {

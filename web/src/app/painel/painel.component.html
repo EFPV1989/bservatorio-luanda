@@ -44,7 +44,7 @@
     </div>
     @if (projecao()) {
       <p class="mt-2 text-xs text-tinta-suave" data-testid="nota-projecao">
-        Este ano é uma projeção da fonte, não uma observação.
+        Este ano é uma projeção da fonte, não uma estimativa a partir de imagens de satélite.
       </p>
     }
     @if (anoSemDados()) {
@@ -69,9 +69,19 @@
         }
         @if (graficoSerie().length > 0) {
           <app-grafico-serie class="mt-2" [pontos]="graficoSerie()" [anoAtual]="ano()" [titulo]="camada.nome + ' na área de estudo'" />
-          <p class="mt-1 text-xs text-tinta-clara">Linha cheia: observado. Tracejado: projeção.</p>
+          <p class="mt-1 text-xs text-tinta-clara">Linha cheia: estimado a partir de imagens de satélite. Tracejado: projeção.</p>
         } @else {
           <p class="mt-2 text-xs text-tinta-clara">A carregar a série…</p>
+        }
+        @if (camada.notas.length > 0) {
+          <details class="mt-2 text-xs text-tinta-suave" data-testid="notas-camada">
+            <summary class="cursor-pointer font-medium">Limitações destes dados</summary>
+            <ul class="mt-1 list-disc space-y-1 pl-4">
+              @for (nota of camada.notas; track nota) {
+                <li>{{ nota }}</li>
+              }
+            </ul>
+          </details>
         }
       </section>
 

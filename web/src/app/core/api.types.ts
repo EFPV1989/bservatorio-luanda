@@ -44,6 +44,8 @@ export interface Camada {
   resolucao: string;
   /** O que o valor mede: 'm2' (área) ou 'pessoas'. */
   unidade: string;
+  /** Limitações da fonte, em frases curtas para o leitor. */
+  notas: string[];
   disponivel: boolean;
 }
 

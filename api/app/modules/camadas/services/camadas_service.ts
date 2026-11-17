@@ -9,6 +9,8 @@ export interface Camada {
   anos: { inicio: number; fim: number; ultimoObservado: number | null; carregados: number[] }
   resolucao: string
   unidade: string
+  /** Limitações da fonte, em frases curtas para o leitor. */
+  notas: string[]
   disponivel: boolean
 }
 
@@ -41,6 +43,7 @@ interface LinhaCamada {
   anos: number[]
   resolucao: string
   unidade: string
+  notas: string[] | null
   disponivel: boolean
 }
 
@@ -63,6 +66,7 @@ function paraCamada(linha: LinhaCamada): Camada {
     },
     resolucao: linha.resolucao,
     unidade: linha.unidade,
+    notas: linha.notas ?? [],
     disponivel: linha.disponivel,
   }
 }

@@ -58,6 +58,7 @@ const CAMADA_GHSL: Camada = {
   anos: { inicio: 1975, fim: 2030, ultimoObservado: 2020, carregados: [1975, 2020, 2030] },
   resolucao: '100 m',
   unidade: 'm2',
+  notas: [],
   disponivel: true,
 };
 

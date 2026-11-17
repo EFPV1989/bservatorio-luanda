@@ -19,6 +19,11 @@ export const CAMADAS = [
     resolucao: '100 m',
     unidade: 'm2',
     ano_ultimo_observado: 2020,
+    notas: [
+      'Estimativas a partir de imagens de satélite de 1975, 1990, 2000, 2014 (Landsat) e 2018 (Sentinel-2); os outros anos são interpolados e 2025 e 2030 são projeções.',
+      'A série só regista construção nova: não mostra demolições.',
+      'A precisão é mais baixa nesta região: 86,4% na África Central e 83,8% na África Austral, segundo a avaliação da própria fonte.',
+    ],
     ordem: 1,
   },
   {
@@ -33,6 +38,7 @@ export const CAMADAS = [
     resolucao: '4 m',
     unidade: 'm2',
     ano_ultimo_observado: 2023,
+    notas: [],
     ordem: 2,
   },
   {
@@ -47,6 +53,7 @@ export const CAMADAS = [
     resolucao: '100 m',
     unidade: 'pessoas',
     ano_ultimo_observado: null,
+    notas: [],
     ordem: 3,
   },
 ] as const
@@ -58,14 +65,15 @@ export default class extends BaseSeeder {
       await db.rawQuery(
         `INSERT INTO camadas
            (id, nome, descricao, fonte_nome, fonte_url, licenca, ano_inicio, ano_fim, resolucao,
-            unidade, ano_ultimo_observado, ordem)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            unidade, ano_ultimo_observado, notas, ordem)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT (id) DO UPDATE SET
            nome = EXCLUDED.nome, descricao = EXCLUDED.descricao,
            fonte_nome = EXCLUDED.fonte_nome, fonte_url = EXCLUDED.fonte_url,
            licenca = EXCLUDED.licenca, ano_inicio = EXCLUDED.ano_inicio,
            ano_fim = EXCLUDED.ano_fim, resolucao = EXCLUDED.resolucao,
            unidade = EXCLUDED.unidade, ano_ultimo_observado = EXCLUDED.ano_ultimo_observado,
+           notas = EXCLUDED.notas,
            ordem = EXCLUDED.ordem, updated_at = now()`,
         [
           c.id,
@@ -79,6 +87,7 @@ export default class extends BaseSeeder {
           c.resolucao,
           c.unidade,
           c.ano_ultimo_observado,
+          [...c.notas],
           c.ordem,
         ]
       )
