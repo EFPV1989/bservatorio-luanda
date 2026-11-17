@@ -1,0 +1,23 @@
+<div class="flex h-full flex-col md:flex-row">
+  <aside class="order-2 max-h-[45vh] overflow-y-auto border-t border-linha bg-papel p-5 md:order-1 md:max-h-none md:w-80 md:shrink-0 md:border-r md:border-t-0 lg:w-96">
+    <app-painel
+      [areaEstudo]="areaEstudo()"
+      [grelha]="grelha()"
+      [camadas]="camadas()"
+      [zoom]="zoom()"
+      [erro]="erro()"
+      [(ano)]="ano"
+      [(mostrarGrelha)]="mostrarGrelha"
+    />
+  </aside>
+  <main class="order-1 min-h-0 flex-1 md:order-2">
+    <app-mapa
+      [estiloBase]="estiloBase"
+      [urlTilesGrelha]="urlTilesGrelha"
+      [areaEstudo]="areaEstudo()"
+      [grelha]="grelha()"
+      [mostrarGrelha]="mostrarGrelha()"
+      (zoomMudou)="zoom.set($event)"
+    />
+  </main>
+</div>

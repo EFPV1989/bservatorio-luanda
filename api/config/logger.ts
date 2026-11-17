@@ -1,0 +1,51 @@
+import env from '#start/env'
+import app from '@adonisjs/core/services/app'
+import { defineConfig, targets } from '@adonisjs/core/logger'
+
+/**
+ * Caminhos que nunca podem chegar aos logs em claro.
+ */
+export const REDACTED_LOG_PATHS = [
+  'password',
+  'passwordConfirmation',
+  'token',
+  'accessToken',
+  'refreshToken',
+  'secret',
+  '*.password',
+  '*.passwordConfirmation',
+  '*.token',
+  '*.secret',
+  'headers.authorization',
+  'headers.cookie',
+  'req.headers.authorization',
+  'req.headers.cookie',
+]
+
+const loggerConfig = defineConfig({
+  default: 'app',
+
+  loggers: {
+    app: {
+      enabled: true,
+      name: env.get('APP_NAME', 'observatorio-luanda-api'),
+      level: env.get('LOG_LEVEL'),
+      redact: {
+        paths: REDACTED_LOG_PATHS,
+        censor: '[REDACTED]',
+      },
+      transport: {
+        targets: targets()
+          .pushIf(!app.inProduction, targets.pretty())
+          .pushIf(app.inProduction, targets.file({ destination: 1 }))
+          .toArray(),
+      },
+    },
+  },
+})
+
+export default loggerConfig
+
+declare module '@adonisjs/core/types' {
+  export interface LoggersList extends InferLoggers<typeof loggerConfig> {}
+}

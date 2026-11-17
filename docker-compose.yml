@@ -1,0 +1,21 @@
+# Ambiente local: PostgreSQL com PostGIS. Credenciais apenas de desenvolvimento.
+# A API (api/) e o site (web/) correm no host com `npm run dev` / `npm start`.
+services:
+  postgis:
+    image: postgis/postgis:17-3.5-alpine
+    environment:
+      POSTGRES_USER: observatorio
+      POSTGRES_PASSWORD: observatorio_dev
+      POSTGRES_DB: observatorio_dev
+    ports:
+      - '5433:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/10-test-db.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U observatorio -d observatorio_dev']
+      interval: 5s
+      retries: 10
+
+volumes:
+  pgdata:

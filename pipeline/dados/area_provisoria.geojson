@@ -1,0 +1,18 @@
+{
+  "type": "FeatureCollection",
+  "name": "area_provisoria",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "nome": "Área provisória (retângulo à volta da antiga província de Luanda)",
+        "fonte": "Retângulo aproximado, desenhado à mão — substituir pelos limites oficiais (HDX COD-AB)",
+        "provisoria": true
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[12.95, -10.05], [14.10, -10.05], [14.10, -8.55], [12.95, -8.55], [12.95, -10.05]]]
+      }
+    }
+  ]
+}
