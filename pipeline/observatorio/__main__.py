@@ -60,6 +60,32 @@ def _grelha(args: argparse.Namespace) -> int:
     return 0
 
 
+def _area(args: argparse.Namespace) -> int:
+    origem = gpd.read_file(args.origem)
+    if args.campo not in origem.columns:
+        print(f"Erro: a coluna '{args.campo}' não existe em {args.origem}.", file=sys.stderr)
+        return 1
+    selecao = origem[origem[args.campo] == args.valor]
+    if selecao.empty:
+        print(f"Erro: nenhuma geometria com {args.campo} = '{args.valor}'.", file=sys.stderr)
+        return 1
+    if not selecao.is_valid.all():
+        print("Erro: a geometria selecionada não é válida.", file=sys.stderr)
+        return 1
+
+    area = gpd.GeoDataFrame(
+        {"nome": [args.nome], "fonte": [args.fonte], "provisoria": [False]},
+        geometry=[selecao.to_crs("EPSG:4326").union_all()],
+        crs="EPSG:4326",
+    )
+    saida = Path(args.saida)
+    saida.parent.mkdir(parents=True, exist_ok=True)
+    area.to_file(saida, driver="GeoJSON", COORDINATE_PRECISION=6)
+    area_km2 = area.to_crs("EPSG:32733").area.iloc[0] / 1e6
+    print(f"Área de estudo: {args.nome} ({area_km2:,.0f} km²) gravada em {saida}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="observatorio", description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="comando", required=True)
@@ -72,6 +98,15 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--fonte", help="Fonte dos limites (padrão: propriedade 'fonte' do ficheiro)")
     p.add_argument("--carregar", action="store_true", help="Carregar também no PostGIS (usa DATABASE_URL)")
     p.set_defaults(func=_grelha)
+
+    a = sub.add_parser("area", help="Extrai a área de estudo de um ficheiro de limites administrativos")
+    a.add_argument("--origem", required=True, help="Ficheiro de limites (ex.: ago_admin1.shp do HDX)")
+    a.add_argument("--campo", default="adm1_name", help="Coluna com o nome da unidade (padrão: adm1_name)")
+    a.add_argument("--valor", default="Luanda", help="Unidade a extrair (padrão: Luanda)")
+    a.add_argument("--nome", required=True, help="Nome da área de estudo")
+    a.add_argument("--fonte", required=True, help="Fonte dos limites, para citar no site")
+    a.add_argument("--saida", default="dados/area_estudo.geojson", help="GeoJSON de saída")
+    a.set_defaults(func=_area)
 
     args = parser.parse_args(argv)
     return args.func(args)

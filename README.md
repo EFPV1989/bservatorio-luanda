@@ -12,8 +12,8 @@ O plano completo (perguntas de pesquisa, fontes, metodologia, fases e riscos) es
 - O site abre com o mapa de Luanda e a grelha de análise (hexágonos de 500 m de lado).
 - O deslizador de anos (1975–2030) e o catálogo de camadas já existem, mas ainda não há
   dados por ano: chegam na Fase 1 (superfície construída, GHSL).
-- **A área de estudo é provisória**: um retângulo à volta da antiga província de Luanda.
-  Tem de ser substituída pelos limites oficiais (ver "Trocar a área de estudo").
+- A área de estudo é a antiga província de Luanda (limites de 2011, com Icolo e Bengo e
+  Quiçama), a partir dos limites oficiais do HDX: 30 995 hexágonos a cobrir 19 731 km².
 
 ## Estrutura
 
@@ -49,7 +49,7 @@ npm run dev                    # http://localhost:3333/api/v1/health
 cd pipeline
 pip install -r requirements.txt
 DATABASE_URL=postgres://observatorio:observatorio_dev@localhost:5433/observatorio_dev \
-  python -m observatorio grelha --area dados/area_provisoria.geojson --carregar
+  python -m observatorio grelha --area dados/area_estudo.geojson --carregar
 
 # 4. Site (noutro terminal)
 cd web
@@ -57,24 +57,23 @@ npm install
 npm start                      # http://localhost:4200
 ```
 
-## Trocar a área de estudo
+## Área de estudo
 
-A área de estudo deve ser a **antiga província de Luanda** (limites de 2011, que incluem
-Icolo e Bengo e Quiçama), descarregada de
-[HDX – Angola Subnational Administrative Boundaries](https://data.humdata.org/dataset/cod-ab-ago)
-(nível ADM1, província de Luanda). Depois:
+`pipeline/dados/area_estudo.geojson` é a **antiga província de Luanda** (limites de 2011:
+Belas, Cacuaco, Cazenga, Icolo e Bengo, Luanda, Quiçama e Viana), extraída da camada ADM1
+(código AO11) de
+[OCHA/HDX – Angola Subnational Administrative Boundaries](https://data.humdata.org/dataset/cod-ab-ago).
+Foi gerada assim, a partir do Shapefile descarregado do HDX:
 
 ```bash
 cd pipeline
-DATABASE_URL=... python -m observatorio grelha \
-  --area caminho/para/luanda_adm1.geojson \
+python -m observatorio area --origem caminho/para/ago_admin1.shp \
   --nome "Antiga província de Luanda (limites de 2011)" \
-  --fonte "OCHA/HDX COD-AB Angola" \
-  --carregar
+  --fonte "OCHA/HDX COD-AB Angola (ADM1, AO11)"
 ```
 
-A carga substitui a área e a grelha anteriores. Os ids dos hexágonos não mudam com a área:
-o mesmo sítio tem sempre o mesmo id.
+Uma nova carga da grelha substitui a área e a grelha anteriores. Os ids dos hexágonos não
+mudam com a área: o mesmo sítio tem sempre o mesmo id.
 
 ## API
 
