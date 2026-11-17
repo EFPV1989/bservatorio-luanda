@@ -7,8 +7,85 @@ substitui o conteúdo delas, dentro de uma transação.
 from __future__ import annotations
 
 import geopandas as gpd
+import pandas as pd
 import psycopg
+from shapely import wkb
 from shapely.geometry import MultiPolygon
+
+
+def _ler(url: str, sql: str, params: dict | None = None) -> gpd.GeoDataFrame:
+    """Executa `sql` (com a geometria em WKB na coluna `geom`) e devolve um GeoDataFrame em WGS84."""
+    with psycopg.connect(url) as conn, conn.cursor() as cur:
+        cur.execute(sql, params or {})
+        colunas = [c.name for c in cur.description]
+        linhas = cur.fetchall()
+    tabela = pd.DataFrame(linhas, columns=colunas)
+    geometrias = [wkb.loads(bytes(g)) for g in tabela.pop("geom")]
+    return gpd.GeoDataFrame(tabela, geometry=geometrias, crs="EPSG:4326")
+
+
+def ler_area_estudo(url: str) -> gpd.GeoDataFrame:
+    """A área de estudo carregada (uma só geometria)."""
+    area = _ler(url, "SELECT ST_AsBinary(geom) AS geom FROM area_estudo ORDER BY id DESC LIMIT 1")
+    if area.empty:
+        raise ValueError("A área de estudo ainda não foi carregada (comando 'grelha --carregar').")
+    return area
+
+
+def ler_hexagonos_recortados(url: str, lado: int) -> gpd.GeoDataFrame:
+    """Hexágonos da grelha recortados à área de estudo, com a área (m²) da parte recortada.
+
+    Os hexágonos inteiramente dentro da área (fração 1) não precisam de recorte.
+    """
+    sql = """
+        SELECT h.id,
+               h.area_km2 * h.fracao_na_area * 1e6 AS area_m2,
+               ST_AsBinary(
+                 CASE WHEN h.fracao_na_area >= 1 THEN h.geom
+                      ELSE ST_Multi(ST_CollectionExtract(ST_Intersection(h.geom, a.geom), 3))
+                 END
+               ) AS geom
+          FROM grelha_hexagonos h
+         CROSS JOIN (SELECT geom FROM area_estudo ORDER BY id DESC LIMIT 1) a
+         WHERE h.lado_m = %(lado)s
+         ORDER BY h.id
+    """
+    hexagonos = _ler(url, sql, {"lado": lado})
+    if hexagonos.empty:
+        raise ValueError(f"Não há grelha de {lado} m carregada (comando 'grelha --carregar').")
+    hexagonos["area_m2"] = hexagonos["area_m2"].astype(float)
+    return hexagonos
+
+
+def carregar_valores(url: str, camada: str, valores_por_ano: dict[int, pd.DataFrame]) -> int:
+    """Substitui os valores da `camada` nos anos dados e marca a camada como disponível.
+
+    Cada DataFrame tem as colunas `id` (hexágono) e `valor`. Tudo numa só transação.
+    """
+    total = 0
+    with psycopg.connect(url) as conn, conn.cursor() as cur:
+        cur.execute("SELECT 1 FROM camadas WHERE id = %s", (camada,))
+        if cur.fetchone() is None:
+            raise ValueError(f"A camada '{camada}' não existe no catálogo (corra o seeder da API).")
+        anos = sorted(valores_por_ano)
+        cur.execute("DELETE FROM valores_camada WHERE camada_id = %s AND ano = ANY(%s)", (camada, anos))
+        with cur.copy("COPY valores_camada (camada_id, hexagono_id, ano, valor) FROM STDIN") as copy:
+            for ano in anos:
+                for linha in valores_por_ano[ano].itertuples(index=False):
+                    copy.write_row((camada, linha.id, ano, float(linha.valor)))
+                    total += 1
+        cur.execute(
+            """
+            UPDATE camadas
+               SET disponivel = true,
+                   anos = (SELECT array_agg(DISTINCT ano ORDER BY ano) FROM valores_camada WHERE camada_id = %(c)s),
+                   updated_at = now()
+             WHERE id = %(c)s
+            """,
+            {"c": camada},
+        )
+        conn.commit()
+    return total
 
 
 def _multipoligono(geom) -> MultiPolygon:

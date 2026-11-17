@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { AreaEstudo, Camada, RespostaApi, ResumoGrelha } from './api.types';
+import { AreaEstudo, Camada, PontoHexagono, PontoSerie, RespostaApi, ResumoGrelha } from './api.types';
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
@@ -21,9 +21,23 @@ export class ApiService {
     return this.obter<Camada[]>('camadas');
   }
 
-  /** Modelo de URL dos tiles da grelha, no formato que o MapLibre espera. */
-  urlTilesGrelha(): string {
-    return `${this.absoluto(this.baseUrl)}/grelha/tiles/{z}/{x}/{y}`;
+  serie(camada: string): Observable<PontoSerie[]> {
+    return this.obter<PontoSerie[]>(`camadas/${encodeURIComponent(camada)}/serie`);
+  }
+
+  hexagono(camada: string, hexagono: string): Observable<PontoHexagono[]> {
+    return this.obter<PontoHexagono[]>(
+      `camadas/${encodeURIComponent(camada)}/hexagonos/${encodeURIComponent(hexagono)}`,
+    );
+  }
+
+  /**
+   * Modelo de URL dos tiles da grelha, no formato que o MapLibre espera.
+   * Com `camada`, os tiles trazem os valores dessa camada ano a ano.
+   */
+  urlTilesGrelha(camada?: string | null): string {
+    const base = `${this.absoluto(this.baseUrl)}/grelha/tiles/{z}/{x}/{y}`;
+    return camada ? `${base}?camada=${encodeURIComponent(camada)}` : base;
   }
 
   private obter<T>(caminho: string): Observable<T> {

@@ -22,6 +22,13 @@ export interface AreaEstudoFeature {
   }
 }
 
+/** O que o tile precisa de saber da camada pedida. */
+export interface CamadaNoTile {
+  id: string
+  unidade: string
+  anos: number[]
+}
+
 export interface ResumoGrelha {
   ladoM: number
   hexagonos: number
@@ -87,26 +94,49 @@ export class TerritorioService {
 
   /**
    * Tile vetorial (Mapbox Vector Tile) com os hexágonos que caem no tile.
+   * Com `camada`, cada hexágono leva também uma propriedade por ano (`a1975`,
+   * `a1980`, …): a percentagem do hexágono, nas camadas de área (m²), ou o valor,
+   * nas outras. Assim o site muda de ano sem pedir novos tiles.
    * Devolve `null` quando o zoom é baixo de mais ou não há hexágonos no tile.
    */
-  async tileGrelha(ladoM: number, { z, x, y }: TileCoords): Promise<Buffer | null> {
+  async tileGrelha(
+    ladoM: number,
+    { z, x, y }: TileCoords,
+    camada?: CamadaNoTile
+  ): Promise<Buffer | null> {
     if (z < GRELHA_ZOOM_MINIMO) return null
+
+    const anos = camada ? camada.anos.filter((ano) => Number.isInteger(ano)) : []
+    const expressao =
+      camada?.unidade === 'm2'
+        ? 'LEAST(100, round((100 * v.valor / (h.area_km2 * h.fracao_na_area * 1e6))::numeric, 1))'
+        : 'round(v.valor::numeric, 1)'
+    // Os anos vêm da base de dados como inteiros validados: é seguro pô-los no SQL.
+    const colunasAnos = anos
+      .map((ano) => `, max(${expressao}) FILTER (WHERE v.ano = ${ano})::float8 AS a${ano}`)
+      .join('')
+    const juncao = camada
+      ? 'LEFT JOIN valores_camada v ON v.hexagono_id = h.id AND v.camada_id = ?'
+      : ''
 
     const resultado = await db.rawQuery(
       `WITH limites AS (
          SELECT ST_TileEnvelope(?, ?, ?) AS env_3857
        ),
        mvt AS (
-         SELECT h.id, h.fracao_na_area,
+         SELECT h.id, h.fracao_na_area${colunasAnos},
                 ST_AsMVTGeom(ST_Transform(h.geom, 3857), l.env_3857, 4096, 64, true) AS geom
-           FROM grelha_hexagonos h, limites l
+           FROM grelha_hexagonos h
+           CROSS JOIN limites l
+           ${juncao}
           WHERE h.lado_m = ?
             AND h.geom && ST_Transform(l.env_3857, 4326)
+          GROUP BY h.id, l.env_3857 -- h.id é chave primária: as outras colunas de h seguem-na
        )
        SELECT ST_AsMVT(mvt, ?, 4096, 'geom') AS tile
          FROM mvt
         WHERE geom IS NOT NULL`,
-      [z, x, y, ladoM, GRELHA_CAMADA_MVT]
+      [z, x, y, ...(camada ? [camada.id] : []), ladoM, GRELHA_CAMADA_MVT]
     )
     const tile: Buffer | null = resultado.rows[0]?.tile ?? null
     return tile && tile.length > 0 ? tile : null

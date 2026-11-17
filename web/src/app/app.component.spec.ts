@@ -8,6 +8,7 @@ import { of, throwError } from 'rxjs';
 import { AppComponent } from './app.component';
 import { ApiService } from './core/api.service';
 import { MapaComponent } from './mapa/mapa.component';
+import { Camada } from './core/api.types';
 
 registerLocaleData(localePt, 'pt');
 
@@ -19,14 +20,24 @@ class MapaFalsoComponent {
   readonly areaEstudo = input<unknown>();
   readonly grelha = input<unknown>();
   readonly mostrarGrelha = input<boolean>();
+  readonly colorir = input<boolean>();
+  readonly ano = input<number>();
+  readonly hexagonoSelecionado = input<string | null>();
   readonly zoomMudou = output<number>();
+  readonly hexagonoClicado = output<string | null>();
 }
 
 function criar(api: Partial<ApiService>) {
   TestBed.configureTestingModule({
     imports: [AppComponent],
     providers: [
-      { provide: ApiService, useValue: { urlTilesGrelha: () => 'http://x/{z}/{x}/{y}', ...api } },
+      {
+        provide: ApiService,
+        useValue: {
+          urlTilesGrelha: (camada?: string | null) => `http://x/{z}/{x}/{y}${camada ? '?camada=' + camada : ''}`,
+          ...api,
+        },
+      },
       { provide: LOCALE_ID, useValue: 'pt' },
     ],
   });
@@ -39,7 +50,56 @@ function criar(api: Partial<ApiService>) {
   return fixture;
 }
 
+const CAMADA_GHSL: Camada = {
+  id: 'superficie-construida',
+  nome: 'Superfície construída',
+  descricao: 'd',
+  fonte: { nome: 'GHSL', url: 'https://example.org', licenca: 'CC BY 4.0' },
+  anos: { inicio: 1975, fim: 2030, ultimoObservado: 2020, carregados: [1975, 2020, 2030] },
+  resolucao: '100 m',
+  unidade: 'm2',
+  disponivel: true,
+};
+
 describe('AppComponent', () => {
+  it('ativa a primeira camada com dados, pede a série e os tiles dessa camada', () => {
+    const serie = jasmine.createSpy('serie').and.returnValue(of([{ ano: 2020, total: 1e8, percentagem: 5, projecao: false }]));
+    const fixture = criar({
+      areaEstudo: () => throwError(() => new HttpErrorResponse({ status: 404 })),
+      grelha: () => throwError(() => new HttpErrorResponse({ status: 404 })),
+      camadas: () => of([{ ...CAMADA_GHSL, id: 'edificios', disponivel: false }, CAMADA_GHSL]),
+      serie,
+    });
+    const app = fixture.componentInstance;
+    expect(app.camadaAtiva()?.id).toBe('superficie-construida');
+    expect(serie).toHaveBeenCalledWith('superficie-construida');
+    expect(app.serie()?.length).toBe(1);
+    expect(app.urlTilesGrelha()).toContain('?camada=superficie-construida');
+    expect(app.colorir()).toBeTrue();
+
+    app.escolherCamada(null);
+    expect(app.camadaAtiva()).toBeNull();
+    expect(app.urlTilesGrelha()).not.toContain('camada');
+    expect(app.colorir()).toBeFalse();
+  });
+
+  it('clicar num hexágono pede a sua série; clicar fora fecha', () => {
+    const hexagono = jasmine.createSpy('hexagono').and.returnValue(of([{ ano: 2020, valor: 1000, percentagem: 10, projecao: false }]));
+    const fixture = criar({
+      areaEstudo: () => of(),
+      grelha: () => of(),
+      camadas: () => of([CAMADA_GHSL]),
+      serie: () => of([]),
+      hexagono,
+    });
+    const app = fixture.componentInstance;
+    app.selecionarHexagono('h500_r1_c1');
+    expect(hexagono).toHaveBeenCalledWith('superficie-construida', 'h500_r1_c1');
+    expect(app.hexagono()?.pontos?.length).toBe(1);
+    app.selecionarHexagono(null);
+    expect(app.hexagono()).toBeNull();
+  });
+
   it('carrega a grelha e as camadas da API', () => {
     const fixture = criar({
       areaEstudo: () => throwError(() => new HttpErrorResponse({ status: 404 })),

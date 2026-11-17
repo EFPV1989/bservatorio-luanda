@@ -17,6 +17,8 @@ export const CAMADAS = [
     ano_inicio: 1975,
     ano_fim: 2030,
     resolucao: '100 m',
+    unidade: 'm2',
+    ano_ultimo_observado: 2020,
     ordem: 1,
   },
   {
@@ -29,6 +31,8 @@ export const CAMADAS = [
     ano_inicio: 2016,
     ano_fim: 2023,
     resolucao: '4 m',
+    unidade: 'm2',
+    ano_ultimo_observado: 2023,
     ordem: 2,
   },
   {
@@ -41,23 +45,27 @@ export const CAMADAS = [
     ano_inicio: 2015,
     ano_fim: 2030,
     resolucao: '100 m',
+    unidade: 'pessoas',
+    ano_ultimo_observado: null,
     ordem: 3,
   },
 ] as const
 
 export default class extends BaseSeeder {
   async run() {
-    // `disponivel` não é atualizado num conflito: é o pipeline que o liga.
+    // `disponivel` e `anos` não são atualizados num conflito: é o pipeline que os define.
     for (const c of CAMADAS) {
       await db.rawQuery(
         `INSERT INTO camadas
-           (id, nome, descricao, fonte_nome, fonte_url, licenca, ano_inicio, ano_fim, resolucao, ordem)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           (id, nome, descricao, fonte_nome, fonte_url, licenca, ano_inicio, ano_fim, resolucao,
+            unidade, ano_ultimo_observado, ordem)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT (id) DO UPDATE SET
            nome = EXCLUDED.nome, descricao = EXCLUDED.descricao,
            fonte_nome = EXCLUDED.fonte_nome, fonte_url = EXCLUDED.fonte_url,
            licenca = EXCLUDED.licenca, ano_inicio = EXCLUDED.ano_inicio,
            ano_fim = EXCLUDED.ano_fim, resolucao = EXCLUDED.resolucao,
+           unidade = EXCLUDED.unidade, ano_ultimo_observado = EXCLUDED.ano_ultimo_observado,
            ordem = EXCLUDED.ordem, updated_at = now()`,
         [
           c.id,
@@ -69,6 +77,8 @@ export default class extends BaseSeeder {
           c.ano_inicio,
           c.ano_fim,
           c.resolucao,
+          c.unidade,
+          c.ano_ultimo_observado,
           c.ordem,
         ]
       )

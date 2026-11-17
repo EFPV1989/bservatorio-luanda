@@ -86,6 +86,53 @@ def _area(args: argparse.Namespace) -> int:
     return 0
 
 
+def _ghsl(args: argparse.Namespace) -> int:
+    from observatorio import ghsl, postgis
+
+    url = os.environ.get("DATABASE_URL")
+    if not url:
+        print("Erro: defina DATABASE_URL (a grelha e a área de estudo são lidas do PostGIS).", file=sys.stderr)
+        return 1
+
+    ficheiros = sorted(args.ficheiros, key=ghsl.ano_do_ficheiro)
+    anos = [ghsl.ano_do_ficheiro(f) for f in ficheiros]
+    if len(set(anos)) != len(anos):
+        print(f"Erro: há anos repetidos nos ficheiros: {anos}", file=sys.stderr)
+        return 1
+
+    area = postgis.ler_area_estudo(url)
+    hexagonos = postgis.ler_hexagonos_recortados(url, args.lado)
+    areas_m2 = hexagonos.set_index("id")["area_m2"]
+    area_total_km2 = float(areas_m2.sum()) / 1e6
+    print(f"{len(hexagonos):,} hexágonos, {area_total_km2:,.0f} km² de área de estudo")
+
+    valores_por_ano = {}
+    problemas_totais = []
+    for ano, ficheiro in zip(anos, ficheiros):
+        raster = ghsl.caminho_raster(ficheiro)
+        valores = ghsl.superficie_por_hexagono(raster, hexagonos)
+        referencia = ghsl.total_na_area(raster, area)
+        problemas = ghsl.validar(valores, areas_m2, referencia)
+        soma_km2 = valores["construido_m2"].sum() / 1e6
+        estado = "ok" if not problemas else "PROBLEMAS"
+        print(f"  {ano}: {soma_km2:8,.1f} km² construídos ({soma_km2 / area_total_km2:6.2%} da área) — {estado}")
+        for problema in problemas:
+            print(f"      - {problema}")
+        problemas_totais += problemas
+        valores_por_ano[ano] = valores.rename(columns={"construido_m2": "valor"})
+
+    if problemas_totais:
+        print("Erro: os dados não passaram a validação; nada foi carregado.", file=sys.stderr)
+        return 1
+    if args.simular:
+        print("Simulação: nada foi carregado.")
+        return 0
+
+    n = postgis.carregar_valores(url, args.camada, valores_por_ano)
+    print(f"Carregados {n:,} valores na camada '{args.camada}' ({len(anos)} anos).")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="observatorio", description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="comando", required=True)
@@ -107,6 +154,13 @@ def main(argv: list[str] | None = None) -> int:
     a.add_argument("--fonte", required=True, help="Fonte dos limites, para citar no site")
     a.add_argument("--saida", default="dados/area_estudo.geojson", help="GeoJSON de saída")
     a.set_defaults(func=_area)
+
+    g = sub.add_parser("ghsl", help="Calcula a superfície construída (GHSL) por hexágono e carrega-a")
+    g.add_argument("ficheiros", nargs="+", help="Ficheiros GHS-BUILT-S (.zip ou .tif), um por ano")
+    g.add_argument("--lado", type=int, default=500, help="Lado da grelha em metros (padrão: 500)")
+    g.add_argument("--camada", default="superficie-construida", help="Id da camada no catálogo")
+    g.add_argument("--simular", action="store_true", help="Calcula e valida sem carregar no PostGIS")
+    g.set_defaults(func=_ghsl)
 
     args = parser.parse_args(argv)
     return args.func(args)

@@ -26,9 +26,16 @@ const CAMADA: Camada = {
   nome: 'Superfície construída',
   descricao: 'Parte de cada hexágono coberta por construção.',
   fonte: { nome: 'GHSL', url: 'https://example.org', licenca: 'CC BY 4.0' },
-  anos: { inicio: 1975, fim: 2030 },
+  anos: { inicio: 1975, fim: 2030, ultimoObservado: 2020, carregados: [] },
   resolucao: '100 m',
+  unidade: 'm2',
   disponivel: false,
+};
+
+const CAMADA_COM_DADOS: Camada = {
+  ...CAMADA,
+  anos: { ...CAMADA.anos, carregados: [1975, 2020, 2030] },
+  disponivel: true,
 };
 
 describe('PainelComponent', () => {
@@ -106,5 +113,53 @@ describe('PainelComponent', () => {
     expect(item?.textContent).toContain('CC BY 4.0');
     expect(item?.textContent).toContain('Em breve');
     expect(item?.querySelector('a')?.getAttribute('rel')).toBe('noopener');
+  });
+
+  it('com uma camada ativa mostra o valor do ano, o gráfico e a legenda', () => {
+    fixture.componentRef.setInput('camadas', [CAMADA_COM_DADOS]);
+    fixture.componentRef.setInput('camadaAtiva', CAMADA_COM_DADOS);
+    fixture.componentRef.setInput('serie', [
+      { ano: 1975, total: 50e6, percentagem: 0.25, projecao: false },
+      { ano: 2020, total: 400e6, percentagem: 2.03, projecao: false },
+      { ano: 2030, total: 500e6, percentagem: 2.53, projecao: true },
+    ]);
+    fixture.detectChanges();
+    expect(q('[data-testid="valor-ano"]')?.textContent).toContain('400 km²');
+    expect(q('[data-testid="valor-ano"]')?.textContent).toContain('2,0%');
+    expect(q('app-grafico-serie')).not.toBeNull();
+    expect(q('[data-testid="legenda"]')?.querySelectorAll('li').length).toBe(7);
+    // A camada disponível tem caixa para ligar/desligar, e está ligada.
+    const caixa = q('[data-camada="superficie-construida"] input[type="checkbox"]') as HTMLInputElement;
+    expect(caixa.checked).toBeTrue();
+  });
+
+  it('desligar a camada pede "nenhuma camada"', () => {
+    fixture.componentRef.setInput('camadas', [CAMADA_COM_DADOS]);
+    fixture.componentRef.setInput('camadaAtiva', CAMADA_COM_DADOS);
+    fixture.detectChanges();
+    let escolhida: string | null | undefined;
+    fixture.componentInstance.camadaEscolhida.subscribe((v) => (escolhida = v));
+    const caixa = q('[data-camada="superficie-construida"] input[type="checkbox"]') as HTMLInputElement;
+    caixa.checked = false;
+    caixa.dispatchEvent(new Event('change'));
+    expect(escolhida).toBeNull();
+  });
+
+  it('avisa quando a camada não tem dados para o ano escolhido', () => {
+    fixture.componentRef.setInput('camadaAtiva', CAMADA_COM_DADOS);
+    fixture.componentInstance.ano.set(1990);
+    fixture.detectChanges();
+    expect(q('[data-testid="nota-sem-dados"]')).not.toBeNull();
+  });
+
+  it('mostra o hexágono selecionado com o valor do ano', () => {
+    fixture.componentRef.setInput('camadaAtiva', CAMADA_COM_DADOS);
+    fixture.componentRef.setInput('hexagono', {
+      id: 'h500_r1_c1',
+      pontos: [{ ano: 2020, valor: 324759, percentagem: 50, projecao: false }],
+    });
+    fixture.detectChanges();
+    expect(q('[data-testid="valor-hexagono"]')?.textContent).toContain('50%');
+    expect(q('[data-testid="valor-hexagono"]')?.textContent).toContain('32,5 ha');
   });
 });

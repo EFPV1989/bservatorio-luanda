@@ -12,6 +12,16 @@ export const tileParamsValidator = vine.compile(
   })
 )
 
+export const tileQueryValidator = vine.compile(
+  vine.object({
+    camada: vine
+      .string()
+      .maxLength(64)
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+      .optional(),
+  })
+)
+
 export interface TileCoords {
   z: number
   x: number

@@ -42,3 +42,44 @@ def test_carrega_area_e_grelha_e_substitui_numa_segunda_carga():
         cur.execute("DELETE FROM grelha_hexagonos")
         cur.execute("DELETE FROM area_estudo")
         conn.commit()
+
+
+def test_hexagonos_recortados_e_carga_de_valores():
+    import pandas as pd
+
+    from observatorio.postgis import carregar_valores, ler_area_estudo, ler_hexagonos_recortados
+
+    area = gpd.GeoDataFrame(geometry=[box(300_000, 8_950_000, 302_100, 8_952_100)], crs=CRS_METRICO)
+    grelha = gerar_grelha(area, lado=500)
+    carregar(URL, area, grelha, nome_area="Teste", fonte_area="teste", provisoria=True, lado=500)
+    with psycopg.connect(URL) as conn, conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO camadas (id, nome, descricao, fonte_nome, fonte_url, licenca, ano_inicio, ano_fim,"
+            " resolucao) VALUES ('teste-camada', 't', 't', 't', 'https://t', 't', 2000, 2020, '1 m')"
+            " ON CONFLICT (id) DO NOTHING"
+        )
+        conn.commit()
+
+    try:
+        assert len(ler_area_estudo(URL)) == 1
+        hexagonos = ler_hexagonos_recortados(URL, 500)
+        assert len(hexagonos) == len(grelha)
+        # A soma das partes recortadas é a área de estudo (2,1 km x 2,1 km).
+        assert hexagonos["area_m2"].sum() == pytest.approx(2100 * 2100, rel=1e-3)
+        assert hexagonos.to_crs(CRS_METRICO).area.sum() == pytest.approx(2100 * 2100, rel=1e-3)
+
+        valores = pd.DataFrame({"id": hexagonos["id"], "valor": 100.0})
+        n = carregar_valores(URL, "teste-camada", {2000: valores, 2020: valores})
+        assert n == 2 * len(hexagonos)
+        carregar_valores(URL, "teste-camada", {2020: valores})  # recarregar um ano não duplica
+        with psycopg.connect(URL) as conn, conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM valores_camada WHERE camada_id = 'teste-camada'")
+            assert cur.fetchone()[0] == 2 * len(hexagonos)
+            cur.execute("SELECT disponivel, anos FROM camadas WHERE id = 'teste-camada'")
+            assert cur.fetchone() == (True, [2000, 2020])
+    finally:
+        with psycopg.connect(URL) as conn, conn.cursor() as cur:
+            cur.execute("DELETE FROM camadas WHERE id = 'teste-camada'")
+            cur.execute("DELETE FROM grelha_hexagonos")
+            cur.execute("DELETE FROM area_estudo")
+            conn.commit()

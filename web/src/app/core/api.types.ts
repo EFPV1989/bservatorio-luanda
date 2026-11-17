@@ -33,7 +33,33 @@ export interface Camada {
   nome: string;
   descricao: string;
   fonte: { nome: string; url: string; licenca: string };
-  anos: { inicio: number; fim: number };
+  anos: {
+    inicio: number;
+    fim: number;
+    /** Anos depois deste são projeções; `null` se a fonte não o indica. */
+    ultimoObservado: number | null;
+    /** Anos com dados carregados. */
+    carregados: number[];
+  };
   resolucao: string;
+  /** O que o valor mede: 'm2' (área) ou 'pessoas'. */
+  unidade: string;
   disponivel: boolean;
+}
+
+/** Total da camada na área de estudo num ano. */
+export interface PontoSerie {
+  ano: number;
+  total: number;
+  /** Só em camadas de área (m²): parte da área de estudo, em %. */
+  percentagem: number | null;
+  projecao: boolean;
+}
+
+/** Valor da camada num hexágono num ano. */
+export interface PontoHexagono {
+  ano: number;
+  valor: number;
+  percentagem: number | null;
+  projecao: boolean;
 }

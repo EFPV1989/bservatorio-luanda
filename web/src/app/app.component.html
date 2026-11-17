@@ -4,20 +4,29 @@
       [areaEstudo]="areaEstudo()"
       [grelha]="grelha()"
       [camadas]="camadas()"
+      [camadaAtiva]="camadaAtiva()"
+      [serie]="serie()"
+      [hexagono]="hexagono()"
       [zoom]="zoom()"
       [erro]="erro()"
       [(ano)]="ano"
       [(mostrarGrelha)]="mostrarGrelha"
+      (camadaEscolhida)="escolherCamada($event)"
+      (fecharHexagono)="fecharHexagono()"
     />
   </aside>
   <main class="order-1 min-h-0 flex-1 md:order-2">
     <app-mapa
       [estiloBase]="estiloBase"
-      [urlTilesGrelha]="urlTilesGrelha"
+      [urlTilesGrelha]="urlTilesGrelha()"
       [areaEstudo]="areaEstudo()"
       [grelha]="grelha()"
       [mostrarGrelha]="mostrarGrelha()"
+      [colorir]="colorir()"
+      [ano]="ano()"
+      [hexagonoSelecionado]="hexagono()?.id ?? null"
       (zoomMudou)="zoom.set($event)"
+      (hexagonoClicado)="selecionarHexagono($event)"
     />
   </main>
 </div>

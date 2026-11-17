@@ -3,7 +3,12 @@ import env from '#start/env'
 import { ok } from '#shared/http/response'
 import { AppError } from '#shared/errors/app_error'
 import { TerritorioService } from '#modules/territorio/services/territorio_service'
-import { assertTileExiste, tileParamsValidator } from '#modules/territorio/validators'
+import {
+  assertTileExiste,
+  tileParamsValidator,
+  tileQueryValidator,
+} from '#modules/territorio/validators'
+import { CamadasService } from '#modules/camadas/services/camadas_service'
 
 const ladoM = () => env.get('GRELHA_LADO_M', 500)
 
@@ -28,12 +33,21 @@ export default class TerritorioController {
     return ok(ctx, resumo)
   }
 
-  /** GET /api/v1/grelha/tiles/:z/:x/:y — tile vetorial da grelha. */
+  /**
+   * GET /api/v1/grelha/tiles/:z/:x/:y[?camada=<id>] — tile vetorial da grelha,
+   * opcionalmente com os valores de uma camada ano a ano.
+   */
   async tile(ctx: HttpContext) {
     const coords = await tileParamsValidator.validate(ctx.params)
     assertTileExiste(coords)
+    const { camada: idCamada } = await tileQueryValidator.validate(ctx.request.qs())
+    const camada = idCamada ? await new CamadasService().disponivel(idCamada) : undefined
 
-    const tile = await this.service.tileGrelha(ladoM(), coords)
+    const tile = await this.service.tileGrelha(
+      ladoM(),
+      coords,
+      camada && { id: camada.id, unidade: camada.unidade, anos: camada.anos.carregados }
+    )
     ctx.response.header('Cache-Control', 'public, max-age=3600')
     if (!tile) {
       // 204 = tile vazio; o MapLibre trata-o como "nada a desenhar aqui".

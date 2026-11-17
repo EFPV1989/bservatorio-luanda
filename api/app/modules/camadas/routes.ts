@@ -4,4 +4,6 @@ const CamadasController = () => import('#modules/camadas/controllers/camadas_con
 
 export function registerCamadasRoutes() {
   router.get('camadas', [CamadasController, 'index'])
+  router.get('camadas/:id/serie', [CamadasController, 'serie'])
+  router.get('camadas/:id/hexagonos/:hexagonoId', [CamadasController, 'hexagono'])
 }

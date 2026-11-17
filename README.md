@@ -7,11 +7,12 @@ comerciais.
 O plano completo (perguntas de pesquisa, fontes, metodologia, fases e riscos) está no
 [documento do projeto](https://claude.ai/artifact/2LvjrXRLfoq3prM3NMfssL).
 
-## Estado atual: Fase 0 (esqueleto)
+## Estado atual: Fase 1 (expansão urbana)
 
 - O site abre com o mapa de Luanda e a grelha de análise (hexágonos de 500 m de lado).
-- O deslizador de anos (1975–2030) e o catálogo de camadas já existem, mas ainda não há
-  dados por ano: chegam na Fase 1 (superfície construída, GHSL).
+- Camada **Superfície construída** (GHSL GHS-BUILT-S R2023A, 1975–2030): cada hexágono é
+  pintado pela parte construída no ano do deslizador; um gráfico mostra a área construída
+  total; clicar num hexágono mostra a sua evolução. 2025 e 2030 são projeções da fonte.
 - A área de estudo é a antiga província de Luanda (limites de 2011, com Icolo e Bengo e
   Quiçama), a partir dos limites oficiais do HDX: 30 995 hexágonos a cobrir 19 731 km².
 
@@ -51,6 +52,9 @@ pip install -r requirements.txt
 DATABASE_URL=postgres://observatorio:observatorio_dev@localhost:5433/observatorio_dev \
   python -m observatorio grelha --area dados/area_estudo.geojson --carregar
 
+# 3b. Superfície construída (GHSL) — ver "Dados da GHSL" abaixo
+DATABASE_URL=... python -m observatorio ghsl caminho/para/GHS_BUILT_S_E*_R11_C20.zip
+
 # 4. Site (noutro terminal)
 cd web
 npm install
@@ -75,6 +79,23 @@ python -m observatorio area --origem caminho/para/ago_admin1.shp \
 Uma nova carga da grelha substitui a área e a grelha anteriores. Os ids dos hexágonos não
 mudam com a área: o mesmo sítio tem sempre o mesmo id.
 
+## Dados da GHSL
+
+A antiga província de Luanda cabe no mosaico **R11_C20** da GHSL (100 m, Mollweide).
+Descarregue um ZIP por ano (1975, 1980, …, 2030) de
+`https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/GHSL/GHS_BUILT_S_GLOBE_R2023A/` — pasta
+`GHS_BUILT_S_E<ano>_GLOBE_R2023A_54009_100/V1-0/tiles/`, ficheiro
+`GHS_BUILT_S_E<ano>_GLOBE_R2023A_54009_100_V1_0_R11_C20.zip`. Não é preciso abrir os ZIP.
+
+O comando `ghsl`:
+
+1. lê a grelha e a área de estudo do PostGIS;
+2. soma, para cada hexágono recortado à área de estudo, os m² construídos das células de
+   100 m (as células na borda contam pela fração que fica dentro);
+3. confere que nenhum hexágono tem mais área construída do que área, e que a soma dos
+   hexágonos bate com a soma direta sobre a área de estudo (tolerância de 0,5%);
+4. só carrega se tudo passar. `--simular` faz tudo menos a carga.
+
 ## API
 
 Prefixo `/api/v1`. Respostas no envelope `{ success, data, meta: { requestId } }`.
@@ -85,7 +106,10 @@ Prefixo `/api/v1`. Respostas no envelope `{ success, data, meta: { requestId } }
 | `GET /area-estudo` | Contorno da área de estudo (GeoJSON Feature), com `provisoria` |
 | `GET /grelha` | Resumo da grelha: lado, nº de hexágonos, área coberta, bbox, zoom mínimo |
 | `GET /grelha/tiles/:z/:x/:y` | Tile vetorial (MVT, camada `grelha`); 204 se vazio ou zoom < 10 |
-| `GET /camadas` | Catálogo das camadas de dados, com fonte, licença e anos |
+| `GET /grelha/tiles/:z/:x/:y?camada=<id>` | O mesmo, com uma propriedade por ano (`a1975`, …): % do hexágono (camadas em m²) ou valor |
+| `GET /camadas` | Catálogo das camadas de dados, com fonte, licença, unidade e anos carregados |
+| `GET /camadas/:id/serie` | Total na área de estudo, ano a ano (com % da área e se é projeção) |
+| `GET /camadas/:id/hexagonos/:hexagonoId` | Valores de um hexágono, ano a ano |
 
 ## Testes
 
