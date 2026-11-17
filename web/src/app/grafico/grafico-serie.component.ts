@@ -36,7 +36,7 @@ const M = { esq: 34, dir: 8, cima: 10, baixo: 22 };
         </text>
       }
       @for (p of pontos(); track p.ano; let primeiro = $first; let ultimo = $last) {
-        @if (primeiro || ultimo || p.ano % 10 === 0) {
+        @if (primeiro || ultimo || mostrarAno(p.ano)) {
           <!-- Os anos das pontas alinham para dentro, para não serem cortados. -->
           <text
             [attr.x]="x(p.ano)"
@@ -108,6 +108,12 @@ export class GraficoSerieComponent {
     const [a, b] = [p[0], p[p.length - 1]];
     return `${this.titulo()}: de ${a.valor.toFixed(1)}% em ${a.ano} para ${b.valor.toFixed(1)}% em ${b.ano}`;
   });
+
+  /** Rótulos de década, sem os que ficariam colados ao primeiro ou ao último ano. */
+  mostrarAno(ano: number): boolean {
+    const anos = this.anos();
+    return ano % 10 === 0 && ano - anos[0] >= 10 && anos[anos.length - 1] - ano >= 10;
+  }
 
   x(ano: number): number {
     const anos = this.anos();

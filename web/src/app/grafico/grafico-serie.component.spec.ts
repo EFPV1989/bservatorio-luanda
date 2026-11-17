@@ -50,4 +50,13 @@ describe('GraficoSerieComponent', () => {
     expect(c.marcasY()[0]).toBe(0);
     expect(c.marcasY()[2]).toBeGreaterThanOrEqual(40);
   });
+
+  it('não sobrepõe rótulos do eixo junto às pontas', () => {
+    const anos = [1975, 1980, 1985, 1990, 2000, 2010, 2020, 2025, 2030];
+    const fixture = criar(anos.map((ano) => ({ ano, valor: 1, projecao: ano > 2020 })), null);
+    const rotulos = Array.from(fixture.nativeElement.querySelectorAll('text') as NodeListOf<SVGTextElement>)
+      .map((t) => t.textContent?.trim())
+      .filter((t) => /^\d{4}$/.test(t ?? ''));
+    expect(rotulos).toEqual(['1975', '1990', '2000', '2010', '2020', '2030']);
+  });
 });
